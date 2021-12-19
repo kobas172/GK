@@ -12,9 +12,10 @@
 #include "../glm/gtc/type_ptr.hpp"
 
 
+const int height = 5;
 
-GLuint vbo[4];		//identyfikatory buforow wierzcholkow
-GLuint vao[2];		//identyfikatory tablic wierzcholkow
+GLuint vbo[2*(height + 1)];		//identyfikatory buforow wierzcholkow
+GLuint vao[height + 1];		//identyfikatory tablic wierzcholkow
 GLuint ebo;		//identyfikator bufora elementow
 
 GLuint shaderProgram;
@@ -204,10 +205,10 @@ int initGL(void)
     {   
     	stozek(0, 1);
 
-        glEnable(GL_DEPTH_TEST);
+    glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LEQUAL); 
-	glGenVertexArrays(2, vao); //przypisanie do vao identyfikatorow tablic
-	glGenBuffers(4, vbo);	   //przypisanie do vbo identyfikatorow buforow
+	glGenVertexArrays(height + 1, vao); //przypisanie do vao identyfikatorow tablic
+	glGenBuffers(2*(height + 1), vbo);	   //przypisanie do vbo identyfikatorow buforow
 	glGenBuffers(1, &ebo);
 
 	posAttrib = glGetAttribLocation(shaderProgram, "position"); //pobranie indeksu tablicy atrybutow wierzcholkow okreslajacych polozenie
@@ -215,26 +216,31 @@ int initGL(void)
 	colAttrib = glGetAttribLocation(shaderProgram, "color");    //pobranie indeksu tablicy atrybutow wierzcholkow okreslajacych kolor
         glEnableVertexAttribArray(colAttrib);
 	
-	glBindVertexArray(vao[0]);					//wybor tablicy
-		
-	glBindBuffer(GL_ARRAY_BUFFER, vbo[0]); 							//powiazanie bufora z odpowiednim obiektem (wybor bufora) 
-	glBufferData(GL_ARRAY_BUFFER, sizeof(ver_triangle), ver_triangle, GL_STATIC_DRAW); 	//skopiowanie danych do pamieci aktywnego bufora
-	glVertexAttribPointer(posAttrib, 3, GL_FLOAT, GL_FALSE, 0, 0);				//okreslenie organizacji danych w tablicy wierzcholkow
-	glEnableVertexAttribArray(posAttrib);							//wlaczenie tablicy
-	
-	glBindBuffer(GL_ARRAY_BUFFER, vbo[1]);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(col_triangle), col_triangle, GL_STATIC_DRAW);
-	glVertexAttribPointer(colAttrib, 3, GL_FLOAT, GL_FALSE, 0, 0);
-	glEnableVertexAttribArray(colAttrib);
-	
-	glBindVertexArray(vao[1]);
 
-	glBindBuffer(GL_ARRAY_BUFFER, vbo[2]);
+    for (int i = 0; i < height; i++)
+    {
+        glBindVertexArray(vao[i]);					//wybor tablicy
+
+        glBindBuffer(GL_ARRAY_BUFFER, vbo[2 * i]); 							//powiazanie bufora z odpowiednim obiektem (wybor bufora) 
+        glBufferData(GL_ARRAY_BUFFER, sizeof(ver_triangle), ver_triangle, GL_STATIC_DRAW); 	//skopiowanie danych do pamieci aktywnego bufora
+        glVertexAttribPointer(posAttrib, 3, GL_FLOAT, GL_FALSE, 0, 0);				//okreslenie organizacji danych w tablicy wierzcholkow
+	    glEnableVertexAttribArray(posAttrib);							//wlaczenie tablicy
+
+        glBindBuffer(GL_ARRAY_BUFFER, vbo[2*i+1]);
+	    glBufferData(GL_ARRAY_BUFFER, sizeof(col_triangle), col_triangle, GL_STATIC_DRAW);
+	    glVertexAttribPointer(colAttrib, 3, GL_FLOAT, GL_FALSE, 0, 0);
+	    glEnableVertexAttribArray(colAttrib);
+    }
+
+	
+	glBindVertexArray(vao[height]);
+
+	glBindBuffer(GL_ARRAY_BUFFER, vbo[2*height]);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(ver_rectangle), ver_rectangle, GL_STATIC_DRAW);
 	glVertexAttribPointer(posAttrib, 3, GL_FLOAT, GL_FALSE, 0, 0);
 	glEnableVertexAttribArray(posAttrib);
 
-	glBindBuffer(GL_ARRAY_BUFFER, vbo[3]);
+	glBindBuffer(GL_ARRAY_BUFFER, vbo[2*height+1]);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(col_rectangle), col_rectangle, GL_STATIC_DRAW);
 	glVertexAttribPointer(colAttrib, 3, GL_FLOAT, GL_FALSE, 0, 0);
 	glEnableVertexAttribArray(colAttrib);
@@ -259,21 +265,41 @@ int drawGLScene(int counter)
 {
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
     glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
-    
-    glm::mat4 translationMatrix = glm::translate(glm::mat4(), glm::vec3(0.0f, 0.0f, 0.0f));  		//macierz przesuniecia o zadany wektor
-    glm::mat4 rotationMatrix = glm::rotate(glm::mat4(), glm::radians(fi), glm::vec3(0.0f, 1.0f, 0.0f)); //macierz obrotu o dany kat wokol wektora
-		
-    glm::mat4 transformMatrix = projectionMatrix * viewMatrix * translationMatrix * rotationMatrix; //wygenerowanie macierzy uwzgledniajacej wszystkie transformacje
+
+    int dir[2] = { -1, 1 };
+
+    for (int i = 0; i < height; i++)
+    {
+        glm::mat4 scaledMatrix = glm::scale(glm::mat4(), glm::vec3(0.66f/((0.25f*i)+0.5f),0.66f/((0.25f*i)+0.5f),0.66f/((0.25f*i)+0.5f)));
+        glm::mat4 translationMatrix = glm::translate(glm::mat4(), glm::vec3(0.0f, 1+0.15f*i, 0.0f)); 
+        glm::mat4 rotationMatrix = glm::rotate(glm::mat4(), glm::radians(fi * dir[i%2]), glm::vec3(0.0f, 1.0f, 0.0f));
+            
+        glm::mat4 transformMatrix = projectionMatrix * viewMatrix * translationMatrix * rotationMatrix * scaledMatrix;
 
 
-    GLint transformMatrixUniformLocation = glGetUniformLocation(shaderProgram, "transformMatrix");  //pobranie polozenia macierzy bedacej zmienna jednorodna shadera
-    glUniformMatrix4fv(transformMatrixUniformLocation, 1, GL_FALSE, glm::value_ptr(transformMatrix)); //zapisanie macierzy bedacej zmienna jednorodna shadera wierzcholkow
-    
+        GLint transformMatrixUniformLocation = glGetUniformLocation(shaderProgram, "transformMatrix");
+        glUniformMatrix4fv(transformMatrixUniformLocation, 1, GL_FALSE, glm::value_ptr(transformMatrix));
+        
 
+        glBindVertexArray(vao[i]);
+        glDrawArrays(GL_TRIANGLE_FAN, 0, vert_ct);
+    }
+
+
+
+   
     glBindVertexArray(vao[0]);
     glDrawArrays(GL_TRIANGLE_FAN, 0, 3*vert_ct); //rysowanie trojkata
 
-    glBindVertexArray(vao[1]);
+    glm::mat4 translationMatrix = glm::translate(glm::mat4(), glm::vec3(-0.5f, -1.25f, 0.0f));  		//macierz przesuniecia o zadany wektor
+    glm::mat4 rotationMatrix = glm::rotate(glm::mat4(), 0.0f, glm::vec3(0.0f, 1.0f, 0.0f)); //macierz obrotu o dany kat wokol wektora
+
+    glm::mat4 transformMatrix = projectionMatrix * viewMatrix * translationMatrix * rotationMatrix;
+
+    GLint transformMatrixUniformLocation = glGetUniformLocation(shaderProgram, "transformMatrix");  //pobranie polozenia macierzy bedacej zmienna jednorodna shadera
+    glUniformMatrix4fv(transformMatrixUniformLocation, 1, GL_FALSE, glm::value_ptr(transformMatrix)); //zapisanie macierzy bedacej zmienna jednorodna shadera wierzcholkow
+
+    glBindVertexArray(vao[height]);
     glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0); //rysowanie prostokata
 
     fi += 0.5;
